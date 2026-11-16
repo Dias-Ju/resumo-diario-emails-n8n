@@ -1,0 +1,231 @@
+{
+  "name": "Resumo diário de e-mails no Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "2f5defd0-5358-4355-bbb3-8af1da40bcb6",
+      "name": "Dias úteis às 8h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": true,
+        "simple": false,
+        "filters": {
+          "readStatus": "unread",
+          "receivedAfter": "={{ $now.minus({ hours: 24 }).toISO() }}"
+        },
+        "options": {}
+      },
+      "id": "d93d6dbb-a770-433f-8a30-c88b8b9fd9af",
+      "name": "Buscar e-mails não lidos (24h)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        224,
+        112
+      ],
+      "alwaysOutputData": true,
+      "webhookId": "630680ef-332f-44e2-a335-2addbc2f0130",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "hIBgQfAFMIFngBAQ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "qtd",
+              "name": "quantidade",
+              "type": "number",
+              "value": "={{ $input.all().filter(i => i.json.id).length }}"
+            },
+            {
+              "id": "lista",
+              "name": "emails",
+              "type": "string",
+              "value": "={{ $input.all().filter(i => i.json.id).map((i, idx) => \"E-mail \" + (idx + 1) + \"\\nDe: \" + ((i.json.from && i.json.from.text) || \"\") + \"\\nAssunto: \" + (i.json.subject || \"(sem assunto)\") + \"\\nData: \" + (i.json.date || \"\") + \"\\nConteúdo: \" + String(i.json.text || \"\").replace(/\\s+/g, \" \").slice(0, 1500)).join(\"\\n\\n---\\n\\n\") }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0e006424-759b-491f-b1ec-a803df055315",
+      "name": "Preparar lista de e-mails",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        448,
+        112
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Data de hoje: {{ $now.setZone(\"America/Sao_Paulo\").toFormat(\"dd/MM/yyyy\") }}\nTotal de e-mails não lidos nas últimas 24h: {{ $json.quantidade }}\n\n{{ $json.quantidade > 0 ? $json.emails : \"Nenhum e-mail não lido.\" }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Você é um assistente que prepara um resumo diário dos e-mails não lidos da Júlia, sempre em português do Brasil.\n\nEstruture exatamente assim:\n\n<b>🔴 Importantes</b>\nE-mails com prazos, perguntas diretas para ela ou ações necessárias. Comece cada e-mail com um hífen (\"- \") e deixe UMA linha em branco entre um e-mail e outro. Para cada um, no máximo 2 linhas: na primeira, \"- <b>Remetente</b> – assunto\"; na segunda, o resumo e a ação necessária numa frase curta (destaque o prazo em <i>itálico</i>, se houver). Se não houver nenhum importante, escreva \"- Nenhum e-mail importante.\"\n\n<b>📬 Demais e-mails</b>\nAgrupe os demais por tipo (por exemplo: Promoções, Alertas de vagas, Avisos de conta/banco, Notificações de redes sociais, Newsletters, Compras/pedidos). Uma linha por grupo, começando com hífen, no formato: \"- <b>Tipo</b> (Remetente 1, Remetente 2, ...)\". Não descreva cada e-mail individualmente. Use só os grupos que existirem.\n\nMantenha a mensagem curta e escaneável.\n\nSe não houver e-mails, responda apenas que não há e-mails não lidos nas últimas 24 horas.\n\nFormatação: a mensagem será enviada pelo Telegram em modo HTML. Use apenas as tags <b> e <i>. Não use Markdown (sem **, #, etc.). Escape os caracteres &, < e > que aparecerem no texto como &amp;, &lt; e &gt;. Seja conciso: no máximo 3500 caracteres."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "f290932a-cad8-437c-8ed5-66a45230e4f9",
+      "name": "Resumir e destacar importantes",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        672,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5.4-mini",
+          "cachedResultName": "gpt-5.4-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "0a451dd0-1c30-4c0d-ba3f-a8a4b05f30bd",
+      "name": "Modelo OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        752,
+        336
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "Gateway credits",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "SEU_CHAT_ID_AQUI",
+        "text": "=📧 <b>Resumo dos e-mails – {{ $now.setZone(\"America/Sao_Paulo\").toFormat(\"dd/MM\") }}</b>\n\n{{ $json.text.slice(0, 3900) }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "1a79b648-a979-405f-adf7-5bd8b3bb55a7",
+      "name": "Enviar resumo no Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1024,
+        112
+      ],
+      "webhookId": "49479131-ad0b-4eff-b3ff-9ce176a2bf90",
+      "credentials": {
+        "telegramApi": {
+          "id": "ZaqWtGrbImwns2EQ",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Dias úteis às 8h": {
+      "main": [
+        [
+          {
+            "node": "Buscar e-mails não lidos (24h)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar e-mails não lidos (24h)": {
+      "main": [
+        [
+          {
+            "node": "Preparar lista de e-mails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar lista de e-mails": {
+      "main": [
+        [
+          {
+            "node": "Resumir e destacar importantes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resumir e destacar importantes": {
+      "main": [
+        [
+          {
+            "node": "Enviar resumo no Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Modelo OpenAI": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Resumir e destacar importantes",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timezone": "America/Sao_Paulo",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "2189b129-850f-4558-a0b9-efaeee79f5c6",
+  "meta": {
+    "instanceId": "20e9d7b0c4e431ddd6f0e50b2c9a390a51a4d095eb02a6733b279b7f149a9a84"
+  },
+  "nodeGroups": [],
+  "id": "O3k9YMVcryLGHGsO",
+  "tags": []
+}
