@@ -53,10 +53,6 @@ Se não houver e-mails não lidos, chega um aviso curto.
 
 O WhatsApp faria mais sentido, porque é onde as pessoas realmente leem. A implementação teria que seguir as regras de segurança e de acesso a dados da empresa, já que os e-mails passam por um modelo de IA.
 
-## Tempo economizado
-
-Estimo [X] minutos por dia, que é quanto levo para olhar os e-mails de manhã. Isso está configurado como tempo economizado no n8n.
-
 ## Próximos passos
 
 - Alerta de erro caso o fluxo falhe.
